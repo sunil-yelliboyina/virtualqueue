@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  BUSINESS_OWNER
+  STAFF
+}
+
+enum TicketStatus {
+  WAITING
+  SERVING
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String?  @unique
+  name      String?
+  password  String? // bcrypt hashed, null for guest users
+  role      Role     @default(CUSTOMER)
+  isGuest   Boolean  @default(false) @map("is_guest")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ownedBusinesses Business[] @relation("BusinessOwner")
+  staffAt         Business[] @relation("BusinessStaff")
+  tickets         Ticket[]
+
+  @@map("users")
+}
+
+model Business {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  category    String?
+  logoUrl     String?  @map("logo_url")
+  ownerId     String   @map("owner_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  owner  User    @relation("BusinessOwner", fields: [ownerId], references: [id])
+  staff  User[]  @relation("BusinessStaff")
+  queues Queue[]
+
+  @@map("businesses")
+}
+
+model Queue {
+  id             String   @id @default(uuid())
+  businessId     String   @map("business_id")
+  name           String
+  prefix         String   @default("A")
+  currentNumber  Int      @default(0) @map("current_number")
+  nextNumber     Int      @default(1) @map("next_number")
+  isActive       Boolean  @default(true) @map("is_active")
+  avgServiceTime Int?     @map("avg_service_time") // average service time in seconds
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  tickets  Ticket[]
+
+  @@map("queues")
+}
+
+model Ticket {
+  id            String       @id @default(uuid())
+  queueId       String       @map("queue_id")
+  userId        String?      @map("user_id")
+  customerName  String       @map("customer_name")
+  ticketNumber  Int          @map("ticket_number")
+  displayNumber String       @map("display_number") // e.g., "A-001"
+  partySize     Int          @default(1) @map("party_size")
+  status        TicketStatus @default(WAITING)
+  counterNumber Int?         @map("counter_number") // which counter/desk is serving
+  joinedAt      DateTime     @default(now()) @map("joined_at")
+  calledAt      DateTime?    @map("called_at")
+  servedAt      DateTime?    @map("served_at")
+  completedAt   DateTime?    @map("completed_at")
+
+  queue Queue @relation(fields: [queueId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id])
+
+  @@index([queueId, status])
+  @@index([userId])
+  @@map("tickets")
+}

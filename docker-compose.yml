@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: flowq-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: flowq
+      POSTGRES_PASSWORD: flowq_password
+      POSTGRES_DB: flowq_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowq -d flowq_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+    driver: local
